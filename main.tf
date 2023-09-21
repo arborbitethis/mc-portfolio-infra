@@ -20,7 +20,7 @@ provider "random"  {}
 ######################################################
 
 resource "aws_ecr_repository" "portfolio_ecr" {
-  name                 = "portfolio_ecr"
+  name                 = "portfolio-ecr"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
 
@@ -69,12 +69,12 @@ resource "aws_vpc" "portfolio_vpc" {
 
 resource "aws_subnet" "portfolio_subnet" {
   vpc_id            = aws_vpc.portfolio_vpc.id
-  availability_zone = "us-east-2"
+  availability_zone = var.aws_availability_zone
   cidr_block        = cidrsubnet(aws_vpc.portfolio_vpc.cidr_block, 4, 1)
 }
 
 resource "aws_security_group" "portfolio_security_group" {
-  name_prefix = "example-sg"
+  name_prefix = "portfolio-sg"
   vpc_id = aws_vpc.portfolio_vpc.id
 
   ingress {

@@ -20,7 +20,7 @@ provider "random"  {}
 ######################################################
 
 resource "aws_ecr_repository" "portfolio_ecr" {
-  name                 = "portfolio-ecr"
+  name                 = "mc-portfolio-ecr"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
 
@@ -111,7 +111,6 @@ resource "aws_iam_role" "portfolio_lambda_iam_role" {
 }
 
 # IAM policy to create and push logs to CloudWatch
-# Need to add s3 access...
 resource "aws_iam_policy" "portfolio_lambda_iam_policy" {
   name        = "portfolio-lambda-policy"
   policy = jsonencode({
@@ -135,6 +134,23 @@ resource "aws_iam_role_policy_attachment" "portfolio_lambda_policy_attachment" {
   policy_arn = aws_iam_policy.portfolio_lambda_iam_policy.arn
   role = aws_iam_role.portfolio_lambda_iam_role.name
 }
+
+
+######################################################
+#  Lambda 
+######################################################
+# resource "aws_lambda_function" "portfolio_lambda" {
+#   function_name    = "portfolio-lambda"
+#   filename         = "lambda_function_payload.zip"
+#   source_code_hash = filebase64sha256("lambda_function_payload.zip")
+#   handler          = "index.handler"
+#   role             = aws_iam_role.example.arn
+#   runtime          = "nodejs14.x"
+#   vpc_config {
+#     subnet_ids = [aws_subnet.example.id]
+#     security_group_ids = [aws_security_group.example.id]
+#   }
+# }
 
 
 ######################################################

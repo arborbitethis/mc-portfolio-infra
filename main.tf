@@ -157,7 +157,7 @@ resource "aws_security_group" "portfolio_security_group" {
 ######################################################
 
 resource "aws_lambda_function" "s3_new_object_trigger" {
-  function_name = "NewS3ObjectTrigger"
+  function_name = "ImageTimeAnalysis"
   handler       = "image_time_analysis.lambda_handler" # make sure this matches your file and function name
   runtime       = "python3.9"  # or whichever Python version you are using
 

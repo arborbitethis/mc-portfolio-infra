@@ -60,7 +60,11 @@ resource "aws_s3_bucket_acl" "this" {
 # Bucket for lambda functions
 
 resource "aws_s3_bucket" "lambda_s3" {
-  bucket = "mc-portfolio-s3-4-lambdas" 
+  bucket = "mc-portfolio-s3-4-lambdas"
+
+  versioning {
+    enabled = true
+  }
 }
 
 resource "aws_s3_bucket_ownership_controls" "lambda_bucket_controls" {

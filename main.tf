@@ -70,7 +70,7 @@ resource "aws_s3_bucket_ownership_controls" "lambda_bucket_controls" {
   }
 }
 
-resource "aws_s3_bucket_acl" "this" {
+resource "aws_s3_bucket_acl" "lambda_bucket_acl" {
   depends_on = [aws_s3_bucket_ownership_controls.lambda_bucket_controls]
 
   bucket = aws_s3_bucket.lambda_s3.id

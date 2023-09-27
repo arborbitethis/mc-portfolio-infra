@@ -57,6 +57,27 @@ resource "aws_s3_bucket_acl" "this" {
 }
 
 
+# Bucket for lambda functions
+
+resource "aws_s3_bucket" "lambda_s3" {
+  bucket = "mc-portfolio-s3-4-lambdas" 
+}
+
+resource "aws_s3_bucket_ownership_controls" "this" {
+  bucket = aws_s3_bucket.lambda_s3.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "this" {
+  depends_on = [aws_s3_bucket_ownership_controls.this]
+
+  bucket = aws_s3_bucket.lambda_s3.id
+  acl    = "private"
+}
+
+
 ######################################################
 #  s3 IAM
 ######################################################
@@ -128,53 +149,82 @@ resource "aws_security_group" "portfolio_security_group" {
 }
 
 ######################################################
-#  Lambda IAM
+#  Lambda 
 ######################################################
 
-resource "aws_iam_role" "portfolio_lambda_iam_role" {
-  name = "portfolio-lambda-role"
+resource "aws_lambda_function" "s3_new_object_trigger" {
+  function_name = "NewS3ObjectTrigger"
+  handler       = "image_time_analysis.lambda_handler" # make sure this matches your file and function name
+  runtime       = "python3.9"  # or whichever Python version you are using
+
+  s3_bucket = aws_s3_bucket.lambda_s3.id
+  s3_key    = "img_processing/image_time_analysis.zip"
+  
+  role = aws_iam_role.lambda_exec.arn
+}
+resource "aws_iam_role" "lambda_exec" {
+  name = "lambda_s3_exec_role"
+
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
       }
-    }]
+    ]
   })
 }
 
-# IAM policy to create and push logs to CloudWatch
-resource "aws_iam_policy" "portfolio_lambda_iam_policy" {
-  name        = "portfolio-lambda-policy"
+resource "aws_iam_role_policy_attachment" "lambda_s3_perms" {
+  policy_arn = aws_iam_policy.s3_trigger_policy.arn
+  role       = aws_iam_role.lambda_exec.name
+}
+
+resource "aws_iam_policy" "s3_trigger_policy" {
+  name        = "S3TriggerLambdaPolicy"
+  description = "Policy to allow Lambda to be triggered by S3 and log to CloudWatch"
+
   policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "s3:ListBucket",
-        "s3:GetObject",
-        "s3:PutObject"
-      ]
-      Resource = ["arn:aws:logs:*:*:*"]
-    }]
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Effect   = "Allow",
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Action = "s3:GetObject",
+        Effect = "Allow",
+        Resource = "${aws_s3_bucket.portfolio_s3.arn}/*"
+      }
+    ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "portfolio_lambda_policy_attachment" {
-  policy_arn = aws_iam_policy.portfolio_lambda_iam_policy.arn
-  role = aws_iam_role.portfolio_lambda_iam_role.name
+resource "aws_s3_bucket_notification" "bucket_notification" {
+  bucket = aws_s3_bucket.portfolio_s3.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.s3_new_object_trigger.arn
+    events              = ["s3:ObjectCreated:*"]
+  }
 }
 
-
-######################################################
-#  EC2 instance 
-######################################################
-
+resource "aws_lambda_permission" "allow_bucket" {
+  statement_id  = "AllowS3Bucket"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.s3_new_object_trigger.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = "${aws_s3_bucket.portfolio_s3.arn}"
+}
 
 
 

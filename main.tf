@@ -63,7 +63,7 @@ resource "aws_s3_bucket" "lambda_s3" {
   bucket = "mc-portfolio-s3-4-lambdas" 
 }
 
-resource "aws_s3_bucket_ownership_controls" "this" {
+resource "aws_s3_bucket_ownership_controls" "lambda_bucket_controls" {
   bucket = aws_s3_bucket.lambda_s3.id
   rule {
     object_ownership = "BucketOwnerPreferred"
@@ -71,7 +71,7 @@ resource "aws_s3_bucket_ownership_controls" "this" {
 }
 
 resource "aws_s3_bucket_acl" "this" {
-  depends_on = [aws_s3_bucket_ownership_controls.this]
+  depends_on = [aws_s3_bucket_ownership_controls.lambda_bucket_controls]
 
   bucket = aws_s3_bucket.lambda_s3.id
   acl    = "private"

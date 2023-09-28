@@ -179,7 +179,7 @@ resource "aws_lambda_layer_version" "lambda_layer" {
 
 # Lambda Function
 resource "aws_lambda_function" "s3_new_object_trigger" {
-  function_name = "ImageTimeAnalysis"
+  function_name = "ImageExifExtraction"
   handler       = "image_time_analysis.lambda_handler" # make sure this matches your file and function name
   runtime       = "python3.9"  # or whichever Python version you are using
 

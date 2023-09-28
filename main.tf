@@ -153,6 +153,17 @@ resource "aws_security_group" "portfolio_security_group" {
 }
 
 ######################################################
+#  SQS Queue
+######################################################
+resource "aws_sqs_queue" "image_time_analysis_queue" {
+  name = "ImageTimeAnalysisQueue"
+  delay_seconds       = 0
+  max_message_size    = 256
+  message_retention_seconds = 345600
+  receive_wait_time_seconds = 0
+}
+
+######################################################
 #  Lambda 
 ######################################################
 # Lambda Layer for dependencies
@@ -181,6 +192,16 @@ resource "aws_lambda_function" "s3_new_object_trigger" {
 
   # Attach the layer to the Lambda Function
   layers = [aws_lambda_layer_version.lambda_layer.arn]
+}
+
+resource "aws_lambda_function_event_invoke_config" "lambda_output_trigger" {
+  function_name = aws_lambda_function.s3_new_object_trigger.function_name
+
+  destination_config {
+    on_success {
+      destination = aws_sqs_queue.image_time_analysis_queue.arn
+    }
+  }
 }
 
 resource "aws_iam_role" "lambda_exec" {

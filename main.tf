@@ -177,6 +177,8 @@ resource "aws_lambda_function" "s3_new_object_trigger" {
 
   role = aws_iam_role.lambda_exec.arn
 
+  timeout = 30
+
   # Attach the layer to the Lambda Function
   layers = [aws_lambda_layer_version.lambda_layer.arn]
 }

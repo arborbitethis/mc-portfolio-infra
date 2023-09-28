@@ -155,7 +155,18 @@ resource "aws_security_group" "portfolio_security_group" {
 ######################################################
 #  Lambda 
 ######################################################
+# Lambda Layer for dependencies
+resource "aws_lambda_layer_version" "lambda_layer" {
+  layer_name  = "image-time-analysis-layer"
+  description = "Layer for Image Time Analysis dependencies"
 
+  compatible_runtimes = ["python3.9"]
+
+  s3_bucket = aws_s3_bucket.lambda_s3.id
+  s3_key    = "img_processing/dependency_layer.zip"
+}
+
+# Lambda Function
 resource "aws_lambda_function" "s3_new_object_trigger" {
   function_name = "ImageTimeAnalysis"
   handler       = "image_time_analysis.lambda_handler" # make sure this matches your file and function name
@@ -163,9 +174,13 @@ resource "aws_lambda_function" "s3_new_object_trigger" {
 
   s3_bucket = aws_s3_bucket.lambda_s3.id
   s3_key    = "img_processing/image_time_analysis.zip"
-  
+
   role = aws_iam_role.lambda_exec.arn
+
+  # Attach the layer to the Lambda Function
+  layers = [aws_lambda_layer_version.lambda_layer.arn]
 }
+
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda_s3_exec_role"
 

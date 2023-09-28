@@ -158,7 +158,7 @@ resource "aws_security_group" "portfolio_security_group" {
 resource "aws_sqs_queue" "image_time_analysis_queue" {
   name = "ImageTimeAnalysisQueue"
   delay_seconds       = 0
-  max_message_size    = 256
+  max_message_size    = 10000
   message_retention_seconds = 345600
   receive_wait_time_seconds = 0
 }
@@ -216,6 +216,25 @@ resource "aws_iam_role" "lambda_exec" {
         Principal = {
           Service = "lambda.amazonaws.com"
         }
+      }
+    ]
+  })
+}
+
+
+resource "aws_iam_role_policy" "lambda_sqs_policy" {
+  name = "lambda-sqs-policy"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "sqs:SendMessage"
+        ],
+        Effect = "Allow",
+        Resource = aws_sqs_queue.lambda_output_queue.arn
       }
     ]
   })

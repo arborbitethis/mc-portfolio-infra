@@ -234,7 +234,7 @@ resource "aws_iam_role_policy" "lambda_sqs_policy" {
           "sqs:SendMessage"
         ],
         Effect = "Allow",
-        Resource = aws_sqs_queue.lambda_output_queue.arn
+        Resource = aws_sqs_queue.image_time_analysis_queue.arn
       }
     ]
   })

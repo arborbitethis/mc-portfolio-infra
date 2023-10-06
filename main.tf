@@ -179,7 +179,7 @@ resource "aws_lambda_layer_version" "lambda_layer" {
 
 # Lambda Function
 resource "aws_lambda_function" "s3_new_object_trigger" {
-  function_name = "ImageExifExtraction5"
+  function_name = "ImageExifExtraction"
   handler       = "image_time_analysis.lambda_handler" # make sure this matches your file and function name
   runtime       = "python3.9"  # or whichever Python version you are using
 
@@ -194,15 +194,15 @@ resource "aws_lambda_function" "s3_new_object_trigger" {
   layers = [aws_lambda_layer_version.lambda_layer.arn]
 }
 
-resource "aws_lambda_function_event_invoke_config" "lambda_output_trigger" {
-  function_name = aws_lambda_function.s3_new_object_trigger.function_name
+# resource "aws_lambda_function_event_invoke_config" "lambda_output_trigger" {
+#   function_name = aws_lambda_function.s3_new_object_trigger.function_name
 
-  destination_config {
-    on_success {
-      destination = aws_sqs_queue.image_time_analysis_queue.arn
-    }
-  }
-}
+#   destination_config {
+#     on_success {
+#       destination = aws_sqs_queue.image_time_analysis_queue.arn
+#     }
+#   }
+# }
 
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda_s3_exec_role"
@@ -222,23 +222,23 @@ resource "aws_iam_role" "lambda_exec" {
 }
 
 
-resource "aws_iam_role_policy" "lambda_sqs_policy" {
-  name = "lambda-sqs-policy"
-  role = aws_iam_role.lambda_exec.id
+# resource "aws_iam_role_policy" "lambda_sqs_policy" {
+#   name = "lambda-sqs-policy"
+#   role = aws_iam_role.lambda_exec.id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "sqs:SendMessage"
-        ],
-        Effect = "Allow",
-        Resource = aws_sqs_queue.image_time_analysis_queue.arn
-      }
-    ]
-  })
-}
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Action = [
+#           "sqs:SendMessage"
+#         ],
+#         Effect = "Allow",
+#         Resource = aws_sqs_queue.image_time_analysis_queue.arn
+#       }
+#     ]
+#   })
+# }
 
 resource "aws_iam_role_policy_attachment" "lambda_s3_perms" {
   policy_arn = aws_iam_policy.s3_trigger_policy.arn

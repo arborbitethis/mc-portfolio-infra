@@ -153,17 +153,6 @@ resource "aws_security_group" "portfolio_security_group" {
 }
 
 ######################################################
-#  SQS Queue
-######################################################
-# resource "aws_sqs_queue" "image_time_analysis_queue" {
-#   name = "ImageTimeAnalysisQueue"
-#   delay_seconds       = 0
-#   max_message_size    = 262144
-#   message_retention_seconds = 345600
-#   receive_wait_time_seconds = 0
-# }
-
-######################################################
 #  Lambda 
 ######################################################
 # Lambda Layer for dependencies
@@ -194,15 +183,6 @@ resource "aws_lambda_function" "s3_new_object_trigger" {
   layers = [aws_lambda_layer_version.lambda_layer.arn]
 }
 
-# resource "aws_lambda_function_event_invoke_config" "lambda_output_trigger" {
-#   function_name = aws_lambda_function.s3_new_object_trigger.function_name
-
-#   destination_config {
-#     on_success {
-#       destination = aws_sqs_queue.image_time_analysis_queue.arn
-#     }
-#   }
-# }
 
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda_s3_exec_role"
@@ -220,25 +200,6 @@ resource "aws_iam_role" "lambda_exec" {
     ]
   })
 }
-
-
-# resource "aws_iam_role_policy" "lambda_sqs_policy" {
-#   name = "lambda-sqs-policy"
-#   role = aws_iam_role.lambda_exec.id
-
-#   policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [
-#       {
-#         Action = [
-#           "sqs:SendMessage"
-#         ],
-#         Effect = "Allow",
-#         Resource = aws_sqs_queue.image_time_analysis_queue.arn
-#       }
-#     ]
-#   })
-# }
 
 resource "aws_iam_role_policy_attachment" "lambda_s3_perms" {
   policy_arn = aws_iam_policy.s3_trigger_policy.arn

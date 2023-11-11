@@ -268,11 +268,126 @@ resource "aws_lambda_permission" "allow_bucket" {
 #  ECS Cluster
 ######################################################
 
+# ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "mc-portfolio-cluster"
 }
 
+# ECR Repositories and IAM roles (not shown for brevity)
 
+# IAM roles for ECS tasks
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "ecs_task_execution_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRole",
+      Effect = "Allow",
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      },
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# Task definition for the backend service
+resource "aws_ecs_task_definition" "backend_service" {
+  family                   = "backend_service"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([{
+    name  = "backend_container",
+    image = "${aws_ecr_repository.portfolio_ecr_backend.repository_url}:latest",
+    portMappings = [{
+      containerPort = 80,
+      hostPort      = 80
+    }]
+  }])
+}
+
+# Task definition for the database service
+resource "aws_ecs_task_definition" "db_service" {
+  family                   = "db_service"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([{
+    name  = "db_container",
+    image = "${aws_ecr_repository.portfolio_ecr_db.repository_url}:latest",
+    portMappings = [{
+      containerPort = 5432,
+      hostPort      = 5432
+    }]
+  }])
+}
+
+resource "aws_subnet" "portfolio_subnet" {
+  vpc_id            = aws_vpc.portfolio_vpc.id
+  availability_zone = var.aws_availability_zone
+  cidr_block        = cidrsubnet(aws_vpc.portfolio_vpc.cidr_block, 4, 1)
+}
+
+resource "aws_security_group" "portfolio_security_group" {
+  name_prefix = "portfolio-sg"
+  vpc_id      = aws_vpc.portfolio_vpc.id
+
+  ingress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Fargate Service for the backend task
+resource "aws_ecs_service" "backend_service" {
+  name            = "backend_service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.backend_service.arn
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets = [aws_subnet.portfolio_subnet.id]
+    security_groups = [aws_security_group.portfolio_security_group.id]
+  }
+
+  desired_count = 1
+}
+
+# Fargate Service for the database task
+resource "aws_ecs_service" "db_service" {
+  name            = "db_service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.db_service.arn
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets = [aws_subnet.portfolio_subnet.id]
+    security_groups = [aws_security_group.portfolio_security_group.id]
+  }
+
+  desired_count = 1
+}
 
 
 ######################################################

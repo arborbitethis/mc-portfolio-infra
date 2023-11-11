@@ -19,7 +19,7 @@ provider "random"  {}
 #  ECR
 ######################################################
 
-resource "aws_ecr_repository" "portfolio_ecr" {
+resource "aws_ecr_repository" "portfolio_ecr_backend" {
   name                 = "mc-portfolio-backend"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
@@ -29,7 +29,7 @@ resource "aws_ecr_repository" "portfolio_ecr" {
   }
 }
 
-resource "aws_ecr_repository" "portfolio_ecr" {
+resource "aws_ecr_repository" "portfolio_ecr_db" {
   name                 = "mc-portfolio-backend-postgres"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true

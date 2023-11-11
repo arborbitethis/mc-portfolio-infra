@@ -309,8 +309,8 @@ resource "aws_ecs_task_definition" "backend_service" {
     name  = "backend_container",
     image = "${aws_ecr_repository.portfolio_ecr_backend.repository_url}:latest",
     portMappings = [{
-      containerPort = 80,
-      hostPort      = 80
+      containerPort = 8000,
+      hostPort      = 8000
     }]
   }])
 }

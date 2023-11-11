@@ -334,31 +334,6 @@ resource "aws_ecs_task_definition" "db_service" {
   }])
 }
 
-resource "aws_subnet" "portfolio_subnet" {
-  vpc_id            = aws_vpc.portfolio_vpc.id
-  availability_zone = var.aws_availability_zone
-  cidr_block        = cidrsubnet(aws_vpc.portfolio_vpc.cidr_block, 4, 1)
-}
-
-resource "aws_security_group" "portfolio_security_group" {
-  name_prefix = "portfolio-sg"
-  vpc_id      = aws_vpc.portfolio_vpc.id
-
-  ingress {
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.1.0/24"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
 # Fargate Service for the backend task
 resource "aws_ecs_service" "backend_service" {
   name            = "backend_service"

@@ -20,7 +20,7 @@ provider "random"  {}
 ######################################################
 
 resource "aws_ecr_repository" "portfolio_ecr" {
-  name                 = "mc-portfolio-ecr"
+  name                 = "mc-portfolio-backend"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = true
 
@@ -28,6 +28,22 @@ resource "aws_ecr_repository" "portfolio_ecr" {
     scan_on_push = true
   }
 }
+
+resource "aws_ecr_repository" "portfolio_ecr" {
+  name                 = "mc-portfolio-backend-postgres"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+######################################################
+#  Dynamo DB
+######################################################
+# TODO
+
 
 ######################################################
 #  s3
@@ -246,6 +262,14 @@ resource "aws_lambda_permission" "allow_bucket" {
   function_name = aws_lambda_function.s3_new_object_trigger.function_name
   principal     = "s3.amazonaws.com"
   source_arn    = "${aws_s3_bucket.portfolio_s3.arn}"
+}
+
+######################################################
+#  ECS Cluster
+######################################################
+
+resource "aws_ecs_cluster" "main" {
+  name = "mc-portfolio-cluster"
 }
 
 

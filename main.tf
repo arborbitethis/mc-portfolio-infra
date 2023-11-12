@@ -367,8 +367,6 @@ resource "aws_ecs_cluster" "main" {
   name = "mc-portfolio-cluster"
 }
 
-# ECR Repositories and IAM roles (not shown for brevity)
-
 # IAM roles for ECS tasks
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "ecs_task_execution_role"
@@ -421,8 +419,8 @@ resource "aws_ecs_task_definition" "backend_service" {
 resource "aws_ecs_task_definition" "db_service" {
   family                   = "db_service"
   network_mode             = "awsvpc"
-  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"

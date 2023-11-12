@@ -14,6 +14,23 @@ provider "aws" {
 
 provider "random"  {}
 
+######################################################
+#  Cloudwatch setup
+######################################################
+
+resource "aws_cloudwatch_log_group" "portfolio_api_gateway_log_group" {
+  name = "/aws/lambda/${aws_apigatewayv2_api.portfolio_api_gateway.name}"
+  retention_in_days = 30
+}
+
+resource "aws_cloudwatch_log_group" "backend_service_logs" {
+  name = "/ecs/backend_service"
+}
+
+resource "aws_cloudwatch_log_group" "db_service_logs" {
+  name = "/ecs/db_service"
+}
+
 
 ######################################################
 #  ECR
@@ -168,6 +185,57 @@ resource "aws_security_group" "portfolio_security_group" {
   }
 }
 
+##############
+# GPT Suggested networking fix for ECR image pull
+##############
+# Internet Gateway for the VPC
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.portfolio_vpc.id
+}
+
+# Elastic IP for the NAT Gateway
+resource "aws_eip" "nat_eip" {
+  vpc = true
+}
+
+# NAT Gateway
+resource "aws_nat_gateway" "ngw" {
+  allocation_id = aws_eip.nat_eip.id
+  subnet_id     = aws_subnet.public_subnet.id # Replace with your public subnet ID
+}
+
+# Route Table for Public Subnet (assuming you have a public subnet)
+resource "aws_route_table" "public_route_table" {
+  vpc_id = aws_vpc.portfolio_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+}
+
+# Associate Public Route Table with Public Subnet
+resource "aws_route_table_association" "public_rta" {
+  subnet_id      = aws_subnet.public_subnet.id # Replace with your public subnet ID
+  route_table_id = aws_route_table.public_route_table.id
+}
+
+# Route Table for Private Subnet
+resource "aws_route_table" "private_route_table" {
+  vpc_id = aws_vpc.portfolio_vpc.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.ngw.id
+  }
+}
+
+# Associate Private Route Table with Private Subnet
+resource "aws_route_table_association" "private_rta" {
+  subnet_id      = aws_subnet.portfolio_subnet.id
+  route_table_id = aws_route_table.private_route_table.id
+}
+
 ######################################################
 #  Lambda 
 ######################################################
@@ -311,7 +379,15 @@ resource "aws_ecs_task_definition" "backend_service" {
     portMappings = [{
       containerPort = 8000,
       hostPort      = 8000
-    }]
+    }],
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.backend_service_logs.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
+      }
+    }
   }])
 }
 
@@ -330,7 +406,15 @@ resource "aws_ecs_task_definition" "db_service" {
     portMappings = [{
       containerPort = 5432,
       hostPort      = 5432
-    }]
+    }],
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.db_service_logs.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
+      }
+    }
   }])
 }
 
@@ -378,16 +462,6 @@ resource "aws_apigatewayv2_api" "portfolio_api_gateway" {
     allow_headers = ["Content-Type", "Authorization", "X-Amz-Date", "X-Api-Key", "X-Amz-Security-Token"]
   }
 }
-
-######################################################
-#  Cloudwatch setup
-######################################################
-
-resource "aws_cloudwatch_log_group" "portfolio_api_gateway_log_group" {
-  name = "/aws/lambda/${aws_apigatewayv2_api.portfolio_api_gateway.name}"
-  retention_in_days = 30
-}
-
 
 
 

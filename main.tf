@@ -285,7 +285,7 @@ resource "aws_service_discovery_service" "db_service_sd" {
   name = "db-service"
 
   dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.sd_namespace.id
+    namespace_id = aws_service_discovery_private_dns_namespace.db_sd.id
     routing_policy = "MULTIVALUE"
 
     dns_records {
@@ -303,7 +303,7 @@ resource "aws_service_discovery_service" "backend_service_sd" {
   name = "mc-portfolio-backend-service"
 
   dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.sd_namespace.id
+    namespace_id = aws_service_discovery_private_dns_namespace.db_sd.id
     routing_policy = "MULTIVALUE"
 
     dns_records {

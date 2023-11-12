@@ -14,6 +14,22 @@ provider "aws" {
 
 provider "random"  {}
 
+
+######################################################
+#  Secrets
+######################################################
+
+resource "aws_secretsmanager_secret" "postgres_password" {
+  name        = "postgres_password"
+  description = "PostgreSQL password for ECS"
+}
+
+resource "aws_secretsmanager_secret_version" "postgres_password_version" {
+  secret_id     = aws_secretsmanager_secret.postgres_password.id
+  secret_string = "{\"POSTGRES_PASSWORD\":\"${var.postgres_password}\"}"
+}
+
+
 ######################################################
 #  Cloudwatch setup
 ######################################################
@@ -25,10 +41,12 @@ resource "aws_cloudwatch_log_group" "portfolio_api_gateway_log_group" {
 
 resource "aws_cloudwatch_log_group" "backend_service_logs" {
   name = "/ecs/backend_service"
+  retention_in_days = 30
 }
 
 resource "aws_cloudwatch_log_group" "db_service_logs" {
   name = "/ecs/db_service"
+  retention_in_days = 30
 }
 
 
@@ -403,27 +421,38 @@ resource "aws_ecs_task_definition" "backend_service" {
 resource "aws_ecs_task_definition" "db_service" {
   family                   = "db_service"
   network_mode             = "awsvpc"
+  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
   requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   cpu                      = "256"
   memory                   = "512"
-
-  container_definitions = jsonencode([{
-    name  = "db_container",
-    image = "${aws_ecr_repository.portfolio_ecr_db.repository_url}:latest",
-    portMappings = [{
-      containerPort = 5432,
-      hostPort      = 5432
-    }],
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        awslogs-group         = aws_cloudwatch_log_group.db_service_logs.name
-        awslogs-region        = var.aws_region
-        awslogs-stream-prefix = "ecs"
+  container_definitions    = <<DEFINITION
+[
+  {
+    "name": "postgres",
+    "image": "postgres:latest",
+    "essential": true,
+    "environment": [
+      {
+        "name": "POSTGRES_USER",
+        "value": var.postgres_username
       }
-    }
-  }])
+    ],
+    "secrets": [
+      {
+        "name": "PGPASSWORD",
+        "valueFrom": aws_secretsmanager_secret.postgres_password.arn
+      }
+    ],
+    "portMappings": [
+      {
+        "containerPort": 5432,
+        "hostPort": 5432
+      }
+    ]
+  }
+]
+DEFINITION
 }
 
 # Fargate Service for the backend task

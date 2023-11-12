@@ -155,39 +155,26 @@ resource "aws_iam_user_policy" "s3_policy" {
 ######################################################
 
 resource "aws_vpc" "portfolio_vpc" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
-  enable_dns_support = true
+  enable_dns_support   = true
 }
 
-resource "aws_subnet" "portfolio_subnet" {
+# Public Subnet
+resource "aws_subnet" "portfolio_public_subnet" {
+  vpc_id            = aws_vpc.portfolio_vpc.id
+  availability_zone = var.aws_availability_zone
+  cidr_block        = cidrsubnet(aws_vpc.portfolio_vpc.cidr_block, 4, 0)
+  map_public_ip_on_launch = true
+}
+
+# Private Subnet
+resource "aws_subnet" "portfolio_private_subnet" {
   vpc_id            = aws_vpc.portfolio_vpc.id
   availability_zone = var.aws_availability_zone
   cidr_block        = cidrsubnet(aws_vpc.portfolio_vpc.cidr_block, 4, 1)
 }
 
-resource "aws_security_group" "portfolio_security_group" {
-  name_prefix = "portfolio-sg"
-  vpc_id = aws_vpc.portfolio_vpc.id
-
-  ingress {
-    from_port = 0
-    to_port = 65535
-    protocol = "tcp"
-    cidr_blocks = ["10.0.1.0/24"]
-  }
-
-  egress {
-    from_port = 0
-    to_port = 65535
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-##############
-# GPT Suggested networking fix for ECR image pull
-##############
 # Internet Gateway for the VPC
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.portfolio_vpc.id
@@ -198,12 +185,13 @@ resource "aws_eip" "nat_eip" {
   vpc = true
 }
 
-# NAT Gateway
+# NAT Gateway in the Public Subnet
 resource "aws_nat_gateway" "ngw" {
   allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.portfolio_subnet.id 
+  subnet_id     = aws_subnet.portfolio_public_subnet.id
 }
 
+# Public Route Table
 resource "aws_route_table" "public_route_table" {
   vpc_id = aws_vpc.portfolio_vpc.id
 
@@ -215,11 +203,11 @@ resource "aws_route_table" "public_route_table" {
 
 # Associate Public Route Table with Public Subnet
 resource "aws_route_table_association" "public_rta" {
-  subnet_id      = aws_subnet.portfolio_subnet.id 
+  subnet_id      = aws_subnet.portfolio_public_subnet.id
   route_table_id = aws_route_table.public_route_table.id
 }
 
-# Route Table for Private Subnet
+# Private Route Table
 resource "aws_route_table" "private_route_table" {
   vpc_id = aws_vpc.portfolio_vpc.id
 
@@ -231,9 +219,30 @@ resource "aws_route_table" "private_route_table" {
 
 # Associate Private Route Table with Private Subnet
 resource "aws_route_table_association" "private_rta" {
-  subnet_id      = aws_subnet.portfolio_subnet.id
+  subnet_id      = aws_subnet.portfolio_private_subnet.id
   route_table_id = aws_route_table.private_route_table.id
 }
+
+# Security Group for ECS tasks
+resource "aws_security_group" "portfolio_security_group" {
+  name_prefix = "portfolio-sg"
+  vpc_id      = aws_vpc.portfolio_vpc.id
+
+  ingress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.1.0/24"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 
 ######################################################
 #  Lambda 

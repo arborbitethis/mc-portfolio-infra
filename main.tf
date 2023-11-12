@@ -415,7 +415,6 @@ resource "aws_ecs_task_definition" "backend_service" {
   }])
 }
 
-# Task definition for the database service
 resource "aws_ecs_task_definition" "db_service" {
   family                   = "db_service"
   network_mode             = "awsvpc"
@@ -424,34 +423,33 @@ resource "aws_ecs_task_definition" "db_service" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"
-  container_definitions    = <<DEFINITION
-[
-  {
-    "name": "postgres",
-    "image": "postgres:latest",
-    "essential": true,
-    "environment": [
-      {
-        "name": "POSTGRES_USER",
-        "value": var.postgres_username
-      }
-    ],
-    "secrets": [
-      {
-        "name": "PGPASSWORD",
-        "valueFrom": aws_secretsmanager_secret.postgres_password.arn
-      }
-    ],
-    "portMappings": [
-      {
-        "containerPort": 5432,
-        "hostPort": 5432
-      }
-    ]
-  }
-]
-DEFINITION
+  container_definitions    = jsonencode([
+    {
+      name        = "postgres",
+      image       = "postgres:latest",
+      essential   = true,
+      environment = [
+        {
+          name  = "POSTGRES_USER",
+          value = var.postgres_username
+        }
+      ],
+      secrets = [
+        {
+          name      = "PGPASSWORD",
+          valueFrom = aws_secretsmanager_secret.postgres_password.arn
+        }
+      ],
+      portMappings = [
+        {
+          containerPort = 5432,
+          hostPort      = 5432
+        }
+      ]
+    }
+  ])
 }
+
 
 # Fargate Service for the backend task
 resource "aws_ecs_service" "backend_service" {

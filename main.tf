@@ -29,6 +29,16 @@ resource "aws_secretsmanager_secret_version" "postgres_password_version" {
   secret_string = "{\"POSTGRES_PASSWORD\":\"${var.postgres_password}\"}"
 }
 
+resource "aws_secretsmanager_secret" "mux_token_secret" {
+  name        = "mux_token_secret"
+  description = "Secret for mux auth"
+}
+
+resource "aws_secretsmanager_secret_version" "mux_token_secret_version" {
+  secret_id     = aws_secretsmanager_secret.mux_token_secret.id
+  secret_string = "{\"MUX_TOKEN_SECRET\":\"${var.mux_token_secret}\"}"
+}
+
 
 ######################################################
 #  Cloudwatch setup
@@ -261,6 +271,30 @@ resource "aws_security_group" "portfolio_security_group" {
   }
 }
 
+resource "aws_service_discovery_private_dns_namespace" "sd_namespace" {
+  name        = "mc-portfolio"
+  vpc         = aws_vpc.portfolio_vpc.id
+}
+
+resource "aws_service_discovery_service" "db_service_sd" {
+  name = "db-service"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.sd_namespace.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
+
+
 
 ######################################################
 #  Lambda 
@@ -394,6 +428,11 @@ resource "aws_iam_policy" "ecs_secrets_policy" {
         Effect = "Allow",
         Action = "secretsmanager:GetSecretValue",
         Resource = aws_secretsmanager_secret.postgres_password.arn
+      },
+      {
+        Effect = "Allow",
+        Action = "secretsmanager:GetSecretValue",
+        Resource = aws_secretsmanager_secret.mux_token_secret.arn
       }
     ]
   })
@@ -409,33 +448,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Task definition for the backend service
-resource "aws_ecs_task_definition" "backend_service" {
-  family                   = "backend_service"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  cpu                      = "256"
-  memory                   = "512"
-
-  container_definitions = jsonencode([{
-    name  = "backend_container",
-    image = "${aws_ecr_repository.portfolio_ecr_backend.repository_url}:latest",
-    portMappings = [{
-      containerPort = 8000,
-      hostPort      = 8000
-    }],
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        awslogs-group         = aws_cloudwatch_log_group.backend_service_logs.name
-        awslogs-region        = var.aws_region
-        awslogs-stream-prefix = "ecs"
-      }
-    }
-  }])
-}
-
 resource "aws_ecs_task_definition" "db_service" {
   family                   = "db_service"
   network_mode             = "awsvpc"
@@ -448,11 +460,15 @@ resource "aws_ecs_task_definition" "db_service" {
     {
       name        = "postgres",
       image       = "postgres:latest",
-      essential   = true,
       environment = [
         {
           name  = "POSTGRES_USER",
           value = var.postgres_username
+        },
+        {
+          name = "POSTGRES_DB",
+          value = var.postgres_database_name
+
         }
       ],
       secrets = [
@@ -471,12 +487,11 @@ resource "aws_ecs_task_definition" "db_service" {
   ])
 }
 
-
-# Fargate Service for the backend task
-resource "aws_ecs_service" "backend_service" {
-  name            = "backend_service"
+# Fargate Service for the database task
+resource "aws_ecs_service" "db_service" {
+  name            = "db_service"
   cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.backend_service.arn
+  task_definition = aws_ecs_task_definition.db_service.arn
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -484,14 +499,64 @@ resource "aws_ecs_service" "backend_service" {
     security_groups = [aws_security_group.portfolio_security_group.id]
   }
 
+  service_registries {
+    registry_arn = aws_service_discovery_service.db_service_sd.arn
+  }
+
   desired_count = 1
 }
 
-# Fargate Service for the database task
-resource "aws_ecs_service" "db_service" {
-  name            = "db_service"
+
+
+# Task definition for the backend service
+resource "aws_ecs_task_definition" "backend_service" {
+  family                   = "backend_service"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([{
+    name  = "backend_container",
+    image = "${aws_ecr_repository.portfolio_ecr_backend.repository_url}:latest",
+    environment = [
+      {
+        name  = "MUX_TOKEN_ID",
+        value = var.mux_token_id
+      },
+      {
+        name = "DATABASE_URL",
+        value = "postgresql://${var.postgres_username}:${var.postgres_password}@db-service.mc-portfolio:5432/${var.postgres_database_name}"
+      }
+    ],
+    secrets = [
+      {
+        name      = "MUX_TOKEN_SECRET",
+        valueFrom = aws_secretsmanager_secret.mux_token_secret.arn
+      }
+    ],
+    portMappings = [{
+      containerPort = 8000,
+      hostPort      = 8000
+    }],
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.backend_service_logs.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
+      }
+    }
+  }])
+}
+
+
+# Fargate Service for the backend task
+resource "aws_ecs_service" "backend_service" {
+  name            = "backend_service"
   cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.db_service.arn
+  task_definition = aws_ecs_task_definition.backend_service.arn
   launch_type     = "FARGATE"
 
   network_configuration {

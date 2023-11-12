@@ -16,4 +16,20 @@ variable "postgres_username" {
 
 variable "postgres_password" {
   type = string
+  sensitive = true
 }
+
+variable "postgres_database_name" {
+  type = string
+  default = "mc_portfolio_db"
+}
+ 
+variable "mux_token_id" {
+  type = string
+}
+
+variable "mux_token_secret" {
+  type = string
+  sensitive = true
+}
+

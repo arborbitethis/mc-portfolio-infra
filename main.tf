@@ -434,7 +434,7 @@ resource "aws_ecs_service" "backend_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets = [aws_subnet.portfolio_subnet.id]
+    subnets = [aws_subnet.portfolio_private_subnet.id]
     security_groups = [aws_security_group.portfolio_security_group.id]
   }
 
@@ -449,7 +449,7 @@ resource "aws_ecs_service" "db_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets = [aws_subnet.portfolio_subnet.id]
+    subnets = [aws_subnet.portfolio_private_subnet.id]
     security_groups = [aws_security_group.portfolio_security_group.id]
   }
 

@@ -201,7 +201,7 @@ resource "aws_eip" "nat_eip" {
 # NAT Gateway
 resource "aws_nat_gateway" "ngw" {
   allocation_id = aws_eip.nat_eip.id
-  subnet_id     = aws_subnet.portfolio_subnet.id 
+  subnet_id     = aws_subnet.public_subnet.id # Replace with your public subnet ID
 }
 
 # Route Table for Public Subnet (assuming you have a public subnet)
@@ -216,7 +216,7 @@ resource "aws_route_table" "public_route_table" {
 
 # Associate Public Route Table with Public Subnet
 resource "aws_route_table_association" "public_rta" {
-  subnet_id      = aws_subnet.portfolio_subnet.id 
+  subnet_id      = aws_subnet.public_subnet.id # Replace with your public subnet ID
   route_table_id = aws_route_table.public_route_table.id
 }
 

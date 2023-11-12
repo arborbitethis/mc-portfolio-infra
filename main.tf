@@ -436,7 +436,7 @@ resource "aws_ecs_task_definition" "db_service" {
       ],
       secrets = [
         {
-          name      = "PGPASSWORD",
+          name      = "POSTGRES_PASSWORD",
           valueFrom = aws_secretsmanager_secret.postgres_password.arn
         }
       ],

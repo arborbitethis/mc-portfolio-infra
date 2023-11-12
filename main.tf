@@ -271,8 +271,13 @@ resource "aws_security_group" "portfolio_security_group" {
   }
 }
 
-resource "aws_service_discovery_private_dns_namespace" "sd_namespace" {
-  name        = "mc-portfolio"
+
+###################################################
+# ECS Service Discovery
+###################################################
+
+resource "aws_service_discovery_private_dns_namespace" "db_sd" {
+  name        = "mc-portfolio-database"
   vpc         = aws_vpc.portfolio_vpc.id
 }
 
@@ -294,6 +299,23 @@ resource "aws_service_discovery_service" "db_service_sd" {
   }
 }
 
+resource "aws_service_discovery_service" "backend_service_sd" {
+  name = "mc-portfolio-backend-service"
+
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.sd_namespace.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
+  }
+
+  health_check_custom_config {
+    failure_threshold = 1
+  }
+}
 
 
 ######################################################
@@ -527,7 +549,7 @@ resource "aws_ecs_task_definition" "backend_service" {
       },
       {
         name = "DATABASE_URL",
-        value = "postgresql://${var.postgres_username}:${var.postgres_password}@db-service.mc-portfolio:5432/${var.postgres_database_name}"
+        value = "postgresql://${var.postgres_username}:${var.postgres_password}@db-service.mc-portfolio-database:5432/${var.postgres_database_name}"
       }
     ],
     secrets = [
@@ -551,7 +573,6 @@ resource "aws_ecs_task_definition" "backend_service" {
   }])
 }
 
-
 # Fargate Service for the backend task
 resource "aws_ecs_service" "backend_service" {
   name            = "backend_service"
@@ -562,6 +583,12 @@ resource "aws_ecs_service" "backend_service" {
   network_configuration {
     subnets = [aws_subnet.portfolio_private_subnet.id]
     security_groups = [aws_security_group.portfolio_security_group.id]
+  }
+
+  service_registries {
+    registry_arn = aws_service_discovery_service.backend_service_sd.arn
+    port         = 8000  
+    container_name = "backend_service"  
   }
 
   desired_count = 1
@@ -582,5 +609,29 @@ resource "aws_apigatewayv2_api" "portfolio_api_gateway" {
   }
 }
 
+resource "aws_apigatewayv2_vpc_link" "portfolio_vpc_link" {
+  name               = "portfolio-vpc-link"
+  subnet_ids         = [aws_subnet.portfolio_subnet.id]
+  security_group_ids = [aws_security_group.portfolio_security_group.id]
+}
 
+resource "aws_apigatewayv2_integration" "portfolio_integration" {
+  api_id           = aws_apigatewayv2_api.portfolio_api_gateway.id
+  integration_type = "HTTP_PROXY"
+  integration_uri  = "http://backend_service.mc-portfolio-backend-service"
+  connection_type  = "VPC_LINK"
+  connection_id    = aws_apigatewayv2_vpc_link.portfolio_vpc_link.id
+}
+
+resource "aws_apigatewayv2_route" "portfolio_route" {
+  api_id    = aws_apigatewayv2_api.portfolio_api_gateway.id
+  route_key = "ANY /{proxy+}"  # Replace with specific methods and paths as needed
+  target    = "integrations/${aws_apigatewayv2_integration.portfolio_integration.id}"
+}
+
+resource "aws_apigatewayv2_stage" "portfolio_api_stage" {
+  api_id      = aws_apigatewayv2_api.portfolio_api_gateway.id
+  name        = "v1"
+  auto_deploy = true
+}
 

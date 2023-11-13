@@ -271,6 +271,36 @@ resource "aws_security_group" "portfolio_security_group" {
   }
 }
 
+### Load balancer config
+resource "aws_lb" "portfolio_alb" {
+  name               = "portfolio-alb"
+  internal           = false  # Set to true if you want the ALB to be internal
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.portfolio_security_group.id]
+  subnets            = [aws_subnet.portfolio_private_subnet.id]
+
+  enable_deletion_protection = false
+}
+
+resource "aws_lb_target_group" "portfolio_tg" {
+  name     = "portfolio-tg"
+  port     = 8000  
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.portfolio_vpc.id
+}
+
+resource "aws_lb_listener" "portfolio_listener" {
+  load_balancer_arn = aws_lb.portfolio_alb.arn
+  port              = 8000
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.portfolio_tg.arn
+  }
+}
+#### End load balancer config
+
 
 ###################################################
 # ECS Service Discovery
@@ -542,6 +572,7 @@ resource "aws_ecs_task_definition" "backend_service" {
   container_definitions = jsonencode([{
     name  = "backend_container",
     image = "${aws_ecr_repository.portfolio_ecr_backend.repository_url}:latest",
+    
     environment = [
       {
         name  = "MUX_TOKEN_ID",
@@ -585,6 +616,12 @@ resource "aws_ecs_service" "backend_service" {
     security_groups = [aws_security_group.portfolio_security_group.id]
   }
 
+  load_balancer {
+    target_group_arn = aws_lb_target_group.portfolio_tg.arn
+    container_name   = "backend_service"
+    container_port   = 8000  
+  }
+
   service_registries {
     registry_arn = aws_service_discovery_service.backend_service_sd.arn
     port         = 8000  
@@ -616,12 +653,21 @@ resource "aws_apigatewayv2_vpc_link" "portfolio_vpc_link" {
 }
 
 
+# resource "aws_apigatewayv2_integration" "portfolio_integration" {
+#   api_id           = aws_apigatewayv2_api.portfolio_api_gateway.id
+#   integration_type = "HTTP_PROXY"
+#   integration_uri  = "http://backend_service.mc-portfolio-backend-service"
+#   connection_type  = "VPC_LINK"
+#   connection_id    = aws_apigatewayv2_vpc_link.portfolio_vpc_link.id
+# }
+
 resource "aws_apigatewayv2_integration" "portfolio_integration" {
-  api_id           = aws_apigatewayv2_api.portfolio_api_gateway.id
-  integration_type = "HTTP_PROXY"
-  integration_uri  = "http://backend_service.mc-portfolio-backend-service"
-  connection_type  = "VPC_LINK"
-  connection_id    = aws_apigatewayv2_vpc_link.portfolio_vpc_link.id
+  api_id               = aws_apigatewayv2_api.portfolio_api_gateway.id
+  integration_type     = "HTTP_PROXY"
+  integration_method   = "ANY"  
+  integration_uri      = aws_lb_listener.portfolio_listener.arn
+  connection_type      = "VPC_LINK"
+  connection_id        = aws_apigatewayv2_vpc_link.portfolio_vpc_link.id
 }
 
 resource "aws_apigatewayv2_route" "portfolio_route" {

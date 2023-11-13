@@ -611,9 +611,10 @@ resource "aws_apigatewayv2_api" "portfolio_api_gateway" {
 
 resource "aws_apigatewayv2_vpc_link" "portfolio_vpc_link" {
   name               = "portfolio-vpc-link"
-  subnet_ids         = [aws_subnet.portfolio_subnet.id]
+  subnet_ids         = [aws_subnet.portfolio_private_subnet.id] 
   security_group_ids = [aws_security_group.portfolio_security_group.id]
 }
+
 
 resource "aws_apigatewayv2_integration" "portfolio_integration" {
   api_id           = aws_apigatewayv2_api.portfolio_api_gateway.id

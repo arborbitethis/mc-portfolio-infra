@@ -516,16 +516,20 @@ resource "aws_ecs_task_definition" "backend_service" {
         value = var.mux_token_id
       },
       {
+        name = "MUX_TOKEN_SECRET",
+        value = var.mux_token_secret
+      },
+      {
         name = "DATABASE_URL",
         value = "postgresql://${var.postgres_username}:${var.postgres_password}@db-service.mc-portfolio-database:5432/${var.postgres_database_name}"
       }
     ],
-    secrets = [
-      {
-        name      = "MUX_TOKEN_SECRET",
-        valueFrom = aws_secretsmanager_secret.mux_token_secret.arn
-      }
-    ],
+    # secrets = [
+    #   {
+    #     name      = "MUX_TOKEN_SECRET",
+    #     valueFrom = aws_secretsmanager_secret.mux_token_secret.arn
+    #   }
+    # ],
     portMappings = [{
       containerPort = 8000,
       hostPort      = 8000

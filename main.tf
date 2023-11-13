@@ -288,6 +288,7 @@ resource "aws_lb_target_group" "db_service_tg" {
   port     = 5432
   protocol = "TCP"
   vpc_id   = aws_vpc.portfolio_vpc.id
+  target_type = "ip"
 
   health_check {
     protocol = "TCP"
@@ -299,12 +300,12 @@ resource "aws_lb_target_group" "backend_service_tg" {
   port     = 8000
   protocol = "TCP"
   vpc_id   = aws_vpc.portfolio_vpc.id
+  target_type = "ip"
 
   health_check {
     protocol = "TCP"
   }
 }
-
 
 resource "aws_lb_listener" "db_service_listener" {
   load_balancer_arn = aws_lb.portfolio_nlb.arn

@@ -588,7 +588,6 @@ resource "aws_ecs_service" "backend_service" {
   service_registries {
     registry_arn = aws_service_discovery_service.backend_service_sd.arn
     port         = 8000  
-    container_name = "backend_service"  
   }
 
   desired_count = 1
@@ -627,9 +626,10 @@ resource "aws_apigatewayv2_vpc_link" "portfolio_vpc_link" {
 resource "aws_apigatewayv2_integration" "portfolio_integration" {
   api_id              = aws_apigatewayv2_api.portfolio_api_gateway.id
   integration_type    = "HTTP_PROXY"
-  integration_method  = "ANY"  # Adjust as needed
-  integration_uri     = aws_service_discovery_service.backend_service_sd.arn
-  connection_type     = "INTERNET"
+  integration_method  = "ANY"  
+  integration_uri     = "http://${aws_service_discovery_service.backend_service_sd.name}.mc-portfolio"  
+  connection_type     = "VPC_LINK"
+  connection_id       = aws_apigatewayv2_vpc_link.portfolio_vpc_link.id
 }
 
 resource "aws_apigatewayv2_route" "portfolio_route" {

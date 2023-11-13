@@ -616,12 +616,20 @@ resource "aws_apigatewayv2_vpc_link" "portfolio_vpc_link" {
 }
 
 
+# resource "aws_apigatewayv2_integration" "portfolio_integration" {
+#   api_id           = aws_apigatewayv2_api.portfolio_api_gateway.id
+#   integration_type = "HTTP_PROXY"
+#   integration_uri  = "http://backend_service.mc-portfolio-backend-service"
+#   connection_type  = "VPC_LINK"
+#   connection_id    = aws_apigatewayv2_vpc_link.portfolio_vpc_link.id
+# }
+
 resource "aws_apigatewayv2_integration" "portfolio_integration" {
-  api_id           = aws_apigatewayv2_api.portfolio_api_gateway.id
-  integration_type = "HTTP_PROXY"
-  integration_uri  = "http://backend_service.mc-portfolio-backend-service"
-  connection_type  = "VPC_LINK"
-  connection_id    = aws_apigatewayv2_vpc_link.portfolio_vpc_link.id
+  api_id              = aws_apigatewayv2_api.portfolio_api_gateway.id
+  integration_type    = "HTTP_PROXY"
+  integration_method  = "ANY"  # Adjust as needed
+  integration_uri     = aws_service_discovery_service.backend_service_sd.arn
+  connection_type     = "INTERNET"
 }
 
 resource "aws_apigatewayv2_route" "portfolio_route" {

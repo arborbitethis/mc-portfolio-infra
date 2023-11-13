@@ -278,7 +278,7 @@ resource "aws_lb" "portfolio_nlb" {
   name               = "portfolio-nlb"
   internal           = false
   load_balancer_type = "network"
-  subnets            = [aws_subnet.portfolio_public_subnet.id, /* additional public subnet id */]
+  subnets            = [aws_subnet.portfolio_public_subnet.id]
 
   enable_deletion_protection = false
 }

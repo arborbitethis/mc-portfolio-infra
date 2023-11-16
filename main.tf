@@ -54,7 +54,7 @@ resource "aws_cloudwatch_log_group" "backend_service_logs" {
   retention_in_days = 30
 }
 
-resource "aws_cloudwatch_log_group" "db_service_logs" {
+resource "aws_cloudwatch_log_group" "postgres_log_group" {
   name = "/ecs/db_service"
   retention_in_days = 30
 }
@@ -465,6 +465,14 @@ resource "aws_ecs_task_definition" "db_service" {
       #     valueFrom = aws_secretsmanager_secret.postgres_password.arn
       #   }
       # ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.postgres_log_group.name,
+          "awslogs-region"        = var.aws_region,
+          "awslogs-stream-prefix" = "postgres"
+        }
+      },
       portMappings = [
         {
           containerPort = 5432,

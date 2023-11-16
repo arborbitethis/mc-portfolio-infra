@@ -453,14 +453,18 @@ resource "aws_ecs_task_definition" "db_service" {
           name = "POSTGRES_DB",
           value = var.postgres_database_name
 
-        }
-      ],
-      secrets = [
+        },
         {
-          name      = "POSTGRES_PASSWORD",
-          valueFrom = aws_secretsmanager_secret.postgres_password.arn
+          name = "POSTGRES_PASSWORD",
+          value = var.postgres_password
         }
       ],
+      # secrets = [
+      #   {
+      #     name      = "POSTGRES_PASSWORD",
+      #     valueFrom = aws_secretsmanager_secret.postgres_password.arn
+      #   }
+      # ],
       portMappings = [
         {
           containerPort = 5432,

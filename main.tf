@@ -403,7 +403,7 @@ resource "aws_iam_role" "ecs_task_execution_role" {
 
 resource "aws_iam_policy" "ecs_secrets_policy" {
   name        = "ecs-secrets-policy"
-  description = "Policy to allow ECS tasks to access Secrets Manager"
+  description = "Policy to allow ECS tasks to access Secrets Manager and use ECS Exec"
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -411,12 +411,20 @@ resource "aws_iam_policy" "ecs_secrets_policy" {
       {
         Effect = "Allow",
         Action = "secretsmanager:GetSecretValue",
-        Resource = aws_secretsmanager_secret.postgres_password.arn
+        Resource = [
+          aws_secretsmanager_secret.postgres_password.arn,
+          aws_secretsmanager_secret.mux_token_secret.arn
+        ]
       },
       {
         Effect = "Allow",
-        Action = "secretsmanager:GetSecretValue",
-        Resource = aws_secretsmanager_secret.mux_token_secret.arn
+        Action = [
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
+        ],
+        Resource = "*"
       }
     ]
   })
@@ -563,6 +571,7 @@ resource "aws_ecs_service" "backend_service" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.backend_service.arn
   launch_type     = "FARGATE"
+  enable_execute_command = true
 
   network_configuration {
     subnets = [aws_subnet.portfolio_private_subnet.id]
